@@ -5,6 +5,8 @@ const bot = new tgBot(token, { polling: true });
 const fs = require('fs');
 const mongoose = require('mongoose');
 const moment = require('moment');
+const userStates = {};
+const reviewStates = {};
 // const { Recoverable } = require('repl');
 // Подключение к MongoDB
 mongoose.connect('mongodb+srv://ilyakoval2202:Vip552789@cluster0.4w3zh.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', { useNewUrlParser: true, useUnifiedTopology: true });
@@ -22,6 +24,12 @@ const appointmentSchema = new mongoose.Schema({
 });
 const Appointment = mongoose.model('Appointment', appointmentSchema);
 
+const reviewSchema = new mongoose.Schema({
+  user_id: Number,
+  text: String,
+  stars: Number,
+});
+const Review = mongoose.model('Review', reviewSchema);
 
 const keyboards = {
   mainOptions:[
@@ -34,7 +42,7 @@ const keyboards = {
   ],
 
   manic:[
-    ['🟥 Маникюр с однородным покрытием с гелиевым укреплением','🟧 Снятие без покрытия'],
+    ['🟥 Маникюр с однородным покрытием с гелиевым укреплением','🟧 Снятие без покрытия(Маникюр)'],
     ['🟨 Маникюр однородным покрытием ','🟩 Наращивание'],
     ['🟦 Маникюр без покрытия','🟪 Мужской маникюр'],
     ['❌ Вернуться назад']
@@ -42,25 +50,25 @@ const keyboards = {
 
   pedikure:[
     ['🔴 Педикюр с покрытием','🟠 Педикюр без покрытия'],
-    ['🟡 Педикюр с покрытием пальцев без обработки стопы','🟢 Снятие без покрытия'],
+    ['🟡 Педикюр с покрытием пальцев без обработки стопы','🟢 Снятие без покрытия(Педикюр)'],
     ['❌ Вернуться назад']
   ],
 
 }
 
-const userStates = {};
+
   
 
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
-  if (msg.contact) return 0;
+  if (msg.contact || reviewStates[chatId]?.state == 'waiting_for_text') return 0;
 
   // Проверка текущего состояния пользователя
     if (userStates[chatId]?.state === 'waiting_for_name') {
         // Обработка имени пользователя
-        userStates[chatId].name = text; // Сохраняем имя
+        userStates['username']= text; // Сохраняем имя
       
         await bot.sendMessage(chatId, 'Напиши свой номер телефона в международном формате (+123456789012)... \n\n😃проще будет просто нажать кнопку ниже👇',
           {
@@ -110,7 +118,7 @@ bot.on('message', async (msg) => {
       });
       break;
 
-
+    case '⏮️ Изменить запись':
     case '❇️ Записаться на услугу': 
     
     await bot.sendMessage(chatId,`Супер
@@ -203,6 +211,11 @@ bot.on('message', async (msg) => {
       });
       break;
 
+    case '✍️ Написать отзыв':
+      setReview(msg);
+    break;
+
+    case '❌ На главную':
     case '❌ Вернуться назад':
       bot.sendMessage(chatId,'Вы вернулись на главную страницу',{
         parse_mode: 'HTML',
@@ -220,50 +233,62 @@ bot.on('message', async (msg) => {
       
       break;
 
-    case '🟧 Снятие без покрытия':
-      await bot.sendMessage(chatId, 'Вы выбрали снятие без покрытия.');
+    case '🟧 Снятие без покрытия(Маникюр)':
+      
       await recoding(msg);
       break;
 
     case '🟨 Маникюр однородным покрытием':
-      await bot.sendMessage(chatId, 'Вы выбрали маникюр с однородным покрытием.');
       await recoding(msg);
       break;
 
     case '🟩 Наращивание':
-      await bot.sendMessage(chatId, 'Вы выбрали наращивание.');
       await recoding(msg);
       break;
 
     case '🟦 Маникюр без покрытия':
-      await bot.sendMessage(chatId, 'Вы выбрали маникюр без покрытия.');
       await recoding(msg);
       break;
 
     case '🟪 Мужской маникюр':
-      await bot.sendMessage(chatId, 'Вы выбрали мужской маникюр.');
       await recoding(msg);
       break;
 
     // Разные виды педикюра
     case '🔴 Педикюр с покрытием':
-      await bot.sendMessage(chatId, 'Вы выбрали педикюр с покрытием.');
       await recoding(msg);
       break;
 
     case '🟠 Педикюр без покрытия':
-      await bot.sendMessage(chatId, 'Вы выбрали педикюр без покрытия.');
       await recoding(msg);
       break;
 
     case '🟡 Педикюр с покрытием пальцев без обработки стопы':
-      await bot.sendMessage(chatId, 'Вы выбрали педикюр с покрытием пальцев без обработки стопы.');
       await recoding(msg);
       break;
 
-    case '🟢 Снятие без покрытия':
-      await bot.sendMessage(chatId, 'Вы выбрали снятие без покрытия.');
+    case '🟢 Снятие без покрытия(Педикюр)':
       await recoding(msg);
+      break;
+
+    case '✅ Подтвердить запись':
+      console.log(userStates);
+      const newAppointment = new Appointment({
+        user_id: userStates['id'],
+        username: userStates['username'],
+        appointment_date: userStates['selectedDate'],
+        appointment_time: userStates['selectedTime'],
+        phone: userStates['phoneNumber'],
+        type: userStates['type']
+    });
+    await newAppointment.save();
+
+      bot.sendMessage(chatId,`Супер👍 Я записала тебя на ${userStates['type']} на 📅${userStates['selectedDate']} ⏰${userStates['selectedTime']} Я тебе заранее напомню 😉 Буду ждать тебя, хорошего дня 😃`,{
+        reply_markup:{
+          keyboard:keyboards.mainOptions
+        },
+        resize_keyboard:true
+      })
       break;
 
     default:
@@ -293,7 +318,7 @@ async function recoding(msg){
             const chatId = msg.chat.id;
             const dates = [];
 
-            // Генерация дат на ближайшие 7 дней
+            // Генерация дат на ближайшие 14 дней
 
             for (let i = 0; i < 14; i++) {
                 dates.push(moment().add(i, 'days').format('YYYY-MM-DD'));
@@ -348,7 +373,8 @@ bot.on('callback_query', async (query) => {
             return;
         }
         
-        userStates[chatId] = { state: 'waiting_for_name' };
+        userStates[chatId] = { state: 'waiting_for_name' }; 
+        userStates['id'] = chatId;
         userStates['selectedDate'] = selectedDate;
         userStates['selectedTime'] = selectedTime;
         
@@ -359,28 +385,58 @@ bot.on('callback_query', async (query) => {
 
 bot.on('contact', async (msg) => {
     const chatId = msg.chat.id;
-    const phoneNumber = msg.contact.phone_number;
+    userStates['phoneNumber'] = msg.contact.phone_number;
 
     try {
         // Сохраняем или обновляем контакт пользователя в базе данных
-        const newAppointment = new Appointment({
-            user_id: chatId,
-            username: userStates[chatId].name,
-            appointment_date: userStates['selectedDate'],
-            appointment_time: userStates['selectedTime'],
-            phone: phoneNumber,
-            type: userStates['type']
-        });
-        await newAppointment.save();
-        await bot.sendMessage(chatId, `Супер👍 Я записала тебя на ${userStates['type']} на 📅${userStates['selectedDate']} ⏰${userStates['selectedTime']} Я тебе заранее напомню 😉 Буду ждать тебя, хорошего дня 😃`,{
-          reply_markup:{
-            keyboard:keyboards.mainOptions,
-          },
-          resize_keyboard:true
-        });
-        delete userStates[chatId];
+        
+      await bot.sendMessage(chatId, `Запись на ${userStates['type']} на 📅${userStates['selectedDate']} ⏰${userStates['selectedTime']}. Все верно?`,{
+        reply_markup:{
+          keyboard:[['✅ Подтвердить запись'],
+          ['⏮️ Изменить запись'],
+          ['❌ На главную']
+        ]},
+        resize_keyboard:true
+      });
+      
+      delete userStates[chatId];
     } catch (error) {
         console.error('Ошибка при сохранении контакта:', error);
         await bot.sendMessage(chatId, 'Произошла ошибка при сохранении контакта. Попробуйте снова.');
     }
 });
+
+async function setReview(msg){
+  const chatId = msg.chat.id;
+  reviewStates[chatId] = { state: 'waiting_for_text' };
+
+  bot.sendMessage(chatId, 'Пожалуйста, введите текст вашего отзыва:');
+  bot.once('message', (msg) =>{
+  reviewStates[chatId] ={text: msg.text};
+  bot.sendMessage(chatId,'Теперь выберите количество звезд',{
+    reply_markup:{
+      inline_keyboard:[              
+      [{ text: '⭐', callback_data: 'star_1' }],
+      [{ text: '⭐⭐', callback_data: 'star_2' }],
+      [{ text: '⭐⭐⭐', callback_data: 'star_3' }],
+      [{ text: '⭐⭐⭐⭐', callback_data: 'star_4' }],
+      [{ text: '⭐⭐⭐⭐⭐', callback_data: 'star_5' }]
+      
+      ]
+    }
+  })
+});
+
+  bot.once('callback_query',async (starQuery) => {
+    const starsCount = parseInt(starQuery.data.split('_')[1], 10);
+    await bot.sendMessage(chatId, `Спасибо за ваш отзыв! Вы поставили ${starsCount} звезд и написали:\n"${reviewStates[chatId].text}"`);
+    const review = new Review({
+      user_id: chatId,
+      text: reviewStates[chatId].text,
+      stars: starsCount
+    })
+    await review.save();
+    delete reviewStates[chatId];
+  });
+}
+
