@@ -272,7 +272,7 @@ bot.on('message', async (msg) => {
       break;
 
     case '✅ Подтвердить запись':
-      console.log(userStates);
+      
       const newAppointment = new Appointment({
         user_id: userStates['id'],
         username: userStates['username'],
