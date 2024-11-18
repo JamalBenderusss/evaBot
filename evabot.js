@@ -372,7 +372,7 @@ bot.on('contact', async (msg) => {
             type: userStates['type']
         });
         await newAppointment.save();
-        await bot.sendMessage(chatId, `Супер👍 Я записала тебя на брови на 📅${userStates['selectedDate']} ⏰${userStates['selectedTime']} Я тебе заранее напомню 😉 Буду ждать тебя, хорошего дня 😃`,{
+        await bot.sendMessage(chatId, `Супер👍 Я записала тебя на ${userStates['type']} на 📅${userStates['selectedDate']} ⏰${userStates['selectedTime']} Я тебе заранее напомню 😉 Буду ждать тебя, хорошего дня 😃`,{
           reply_markup:{
             keyboard:keyboards.mainOptions,
           },
