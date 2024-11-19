@@ -1,12 +1,13 @@
 const tgBot = require('node-telegram-bot-api');
-const path = require('path');
+// const path = require('path');
 const token = '7529465114:AAGbzCPm-RwaRpqMUOT02w6PriH9xsIM2Z0';
 const bot = new tgBot(token, { polling: true });
-const fs = require('fs');
+// const fs = require('fs');
 const mongoose = require('mongoose');
 const moment = require('moment');
 const userStates = {};
 const reviewStates = {};
+const schedule = require('node-schedule');
 // const { Recoverable } = require('repl');
 // Подключение к MongoDB
 mongoose.connect('mongodb+srv://ilyakoval2202:Vip552789@cluster0.4w3zh.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', { useNewUrlParser: true, useUnifiedTopology: true });
@@ -451,6 +452,7 @@ async function setReview(msg){
 });
 
   bot.once('callback_query',async (starQuery) => {
+  try {
     const starsCount = parseInt(starQuery.data.split('_')[1], 10);
     await bot.sendMessage(chatId, `Спасибо за ваш отзыв! Вы поставили ${starsCount} звезд и написали:\n"${reviewStates[chatId].text}"`);
     const review = new Review({
@@ -459,9 +461,28 @@ async function setReview(msg){
       stars: starsCount
     })
     await review.save();
+
+            
+    if (starsCount >= 4) {
+        await bot.sendMessage(chatId, `✨ Нам очень приятно, что вам понравилось! 🥰 Если у вас будет минутка, мы будем благодарны за отзыв на Яндекс.Картах. Это очень важно для нас! 😊\n\n[Оставить отзыв на Яндекс.Картах](https://yandex.by/maps/org/tanyanailsss/161368982356/?ll=27.482495%2C53.878875&z=17)`, {
+            parse_mode: 'Markdown'
+        });
+    } else {
+        
+        for (const adminId of adminChatIds) {
+            await bot.sendMessage(adminId, `👎 Пользователь ${chatId} оставил отзыв с ${starsCount} звездами:\n"${reviewText}"`);
+        }
+        await bot.sendMessage(chatId, `Спасибо за ваш отзыв! Мы очень ценим обратную связь и постараемся улучшить наш сервис. Если вы хотите, можете написать свои замечания или предложения. 😊`);
+    }    
     delete reviewStates[chatId];
-  });
+
+} catch (error) {
+    console.error('Ошибка при обработке отзыва:', error);
+    await bot.sendMessage(chatId, 'Произошла ошибка при обработке вашего отзыва. Попробуйте еще раз позже.');
 }
+});
+}
+
 
 function setStars(msg){
   switch(msg){
@@ -482,3 +503,45 @@ function setStars(msg){
     
   }
 }
+
+async function checkCompletedAppointments() {
+  try {
+
+      const now = moment();
+
+      // Найти записи, у которых время процедуры прошло, но отзыв не запрашивался
+      const appointments = await Appointment.find({
+          appointment_date: { $lte: now.format('YYYY-MM-DD') },
+          appointment_time: { $lte: now.format('HH:mm') },
+          procedure_completed: false // Процедура ещё не помечена как завершённая
+      });
+
+      for (const appointment of appointments) {
+
+          appointment.procedure_completed = true;
+          await appointment.save();
+
+
+          await bot.sendMessage(appointment.user_id, `Спасибо, что посетили нашу студию! 🥰 Нам будет очень приятно, если вы оставите отзыв о своей процедуре. Это займёт всего пару минут!`, {
+              reply_markup: {
+                  keyboard: [
+                      ['✍️ Написать отзыв', '❌ На главную']
+                  ],
+                  resize_keyboard: true
+              }
+
+          });
+
+
+          console.log(`Отправлено сообщение с запросом отзыва пользователю ${appointment.user_id}`);
+      }
+  } catch (error) {
+      console.error('Ошибка при проверке завершённых процедур:', error);
+  }
+}
+
+// проверка записей которые уже завершились каждые 2 минуты
+schedule.scheduleJob('*/2 * * * *', async () => {
+  console.log('Проверка завершённых процедур...');
+  await checkCompletedAppointments();
+});
