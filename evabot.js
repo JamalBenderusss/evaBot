@@ -8,6 +8,10 @@ const moment = require('moment');
 const userStates = {};
 const reviewStates = {};
 const schedule = require('node-schedule');
+
+// админ
+const adminChatIds = ['1199006052', '1373154481'];
+
 // const { Recoverable } = require('repl');
 // Подключение к MongoDB
 mongoose.connect('mongodb+srv://ilyakoval2202:Vip552789@cluster0.4w3zh.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', { useNewUrlParser: true, useUnifiedTopology: true });
