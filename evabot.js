@@ -107,6 +107,52 @@ bot.on('message', async (msg) => {
             await showMainMenu(chatId);
             break;
 
+        case '/isAdmin':
+            let isAdmin = false;
+            for (const admin of adminChatIds){
+                if (chatId == admin) {
+                    await bot.sendMessage(chatId, `Вы успешло подключились как администратор`,{
+                        reply_markup:{
+                            keyboard:[
+                                ['📅 Записи'],
+                                ['❌ Вернуться назад']
+                            ],
+                            resize_keyboard:true
+                        }
+                    })
+                }
+                isAdmin = true;
+            }
+            if (!isAdmin)  await bot.sendMessage(chatId, `У вас нет прав!`);
+            break;
+            // записи у админа
+            case'📅 Записи':
+            const now1 = moment();
+            const today1 = now1.format('YYYY-MM-DD');
+
+            // Найти все записи клиента на сегодня и будущее
+            const userAppointments1 = await Appointment.find({
+                appointment_date: { $gte: today1 },
+            }).sort({ appointment_date: 1, appointment_time: 1 });
+
+            if (userAppointments1.length === 0) {
+                await bot.sendMessage(chatId, `На данный момент никто не записан!`);
+            }
+
+            // Выводим записи с кнопками для отмены
+            for (const appointment of userAppointments1) {
+                await bot.sendMessage(chatId,
+                    `Запись:
+                    📅 Дата: ${appointment.appointment_date}
+                    ⏰ Время: ${appointment.appointment_time}
+                    💅 Услуга: ${appointment.type}
+                    📞 Телефон: ${appointment.phone}
+                    🗣️ Имя клиента: ${appointment.username}
+                    👤 id: ${appointment.user_id}
+                    `);
+            }
+            break;
+
         // Услуги
         case '📋 УСЛУГИ':
             await bot.sendMessage(chatId, `Маникюр:
