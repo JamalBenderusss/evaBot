@@ -468,6 +468,14 @@ bot.on('message', async (msg) => {
                 type: userStates[chatId].type
             });
             await newAppointment.save();
+             for (const adminId of adminChatIds) {
+                await bot.sendMessage(adminId, `✅ Пользователь записался:
+📅 Дата: ${newAppointment.appointment_date}
+⏰ Время: ${newAppointment.appointment_time}
+💅 Услуга: ${newAppointment.type}
+📞 Телефон: ${newAppointment.phone}
+🗣️ Имя клиента: ${newAppointment.username}
+`)};
 
             await bot.sendMessage(chatId, `Супер👍 Я записала тебя 
 📅 Дата: ${newAppointment.appointment_date}
