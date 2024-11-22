@@ -12,6 +12,12 @@ const token = process.env.BOT_TOKEN;
 const adminChatIds = process.env.ADMIN_CHAT_IDS.split(',');
 const mongoUri = process.env.MONGO_URI;
 const bot = new tgBot(token, { polling: true });
+const express = require('express');
+const app = express();
+
+app.listen(3000, () => {
+  console.log('Сервер слушает порт 3000');
+});
 
 mongoose.connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true })
 
