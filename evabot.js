@@ -109,9 +109,23 @@ bot.on('message', async (msg) => {
 
     switch (text) {
         case '/start':
+            await bot.sendMessage(chatId, `Перед началом вы должны ознакомиться с нашей политикой конфиденциальности`,{
+                reply_markup:{
+                    keyboard:[['Да👌'],['Нет👎']]
+                },
+                resize_keyboard:true,
+            })
+            bot.sendDocument(chatId, fs.createReadStream('./advertising-mailing.pdf'));
+            
+            break;
+        case 'Да👌':
             await bot.sendMessage(chatId, 'Отлично, вы нажали "Старт"! Давайте продолжим. 🎉');
             await showMainMenu(chatId);
-            break;
+        break;
+
+        case 'Нет👎': 
+            await bot.sendMessage(chatId, 'Мы не можем начать пока вы не согласитель с политикой');
+            break
 
         case '/isAdmin':
             let isAdmin = false;
