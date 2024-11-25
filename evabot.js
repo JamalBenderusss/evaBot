@@ -19,7 +19,7 @@ app.listen(3000, () => {
   console.log('Сервер слушает порт 3000');
 });
 
-mongoose.connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(mongoUri)
 
 // const { Recoverable } = require('repl');
 // Подключение к MongoDB
@@ -35,6 +35,14 @@ const appointmentSchema = new mongoose.Schema({
     reminder_sent_1h: { type: Boolean, default: false },
     reminder_sent_24h: { type: Boolean, default: false }
 });
+
+const UserSchema = new mongoose.Schema({
+    user_id: Number,
+    confidentiality: Boolean
+});
+
+const User = mongoose.model('User', UserSchema);
+
 const Appointment = mongoose.model('Appointment', appointmentSchema);
 
 const reviewSchema = new mongoose.Schema({
@@ -47,13 +55,10 @@ const Review = mongoose.model('Review', reviewSchema);
 const keyboards = {
     mainOptions: [
         ['🆘 Как пользоваться ботом'],
-        ['❇️ Записаться на услугу'],
-        ['📋 УСЛУГИ'],
+        ['📅 Запись'], //'❇️ Записаться на услугу' '📋 УСЛУГИ' '📅 Мои записи' '🏠Главное меню'
         ['🔥 АКЦИИ и СПЕЦПРЕДЛОЖЕНИЯ'],
-        ['👩‍⚕️ О НАС'],
+        ['👩‍⚕️ О НАС'], //'🚍 Как добраться' '🅿️ Где припарковаться?' '🏠Главное меню'
         ['✍️ Отзывы'],
-        ['🚍 Как добраться'],
-        ['📅 Мои записи']
     ],
 
     manic: [
@@ -63,7 +68,7 @@ const keyboards = {
         ['🟩 Наращивание'],
         ['🟦 Маникюр без покрытия'],
         ['🟪 Мужской маникюр'],
-        ['❌ Вернуться назад']
+        ['⬅️ Вернуться назад']
     ],
 
     pedikure: [
@@ -71,12 +76,19 @@ const keyboards = {
         ['🟠 Педикюр без покрытия'],
         ['🟡 Педикюр с покрытием пальцев без обработки стопы'],
         ['🟢 Снятие без покрытия(Педикюр)'],
-        ['❌ Вернуться назад']
+        ['⬅️ Вернуться назад']
     ],
 
 }
 
 
+process.on('uncaughtException', (err) => {
+  console.error('Unhandled Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
 
 
 bot.on('message', async (msg) => {
@@ -109,23 +121,9 @@ bot.on('message', async (msg) => {
 
     switch (text) {
         case '/start':
-            await bot.sendMessage(chatId, `Перед началом вы должны ознакомиться с нашей политикой конфиденциальности`,{
-                reply_markup:{
-                    keyboard:[['Да👌'],['Нет👎']]
-                },
-                resize_keyboard:true,
-            })
-            bot.sendDocument(chatId, fs.createReadStream('./advertising-mailing.pdf'));
-            
+            await bot.sendMessage(chatId, 'Отлично, теперь можете выбрать интересующую вас информацию, представленную ниже: 🎉');
+            await showMainMenu(chatId);           
             break;
-        case 'Да👌':
-            await bot.sendMessage(chatId, 'Отлично, вы нажали "Старт"! Давайте продолжим. 🎉');
-            await showMainMenu(chatId);
-        break;
-
-        case 'Нет👎': 
-            await bot.sendMessage(chatId, 'Мы не можем начать пока вы не согласитель с политикой');
-            break
 
         case '/isAdmin':
             let isAdmin = false;
@@ -134,8 +132,8 @@ bot.on('message', async (msg) => {
                     await bot.sendMessage(chatId, `Вы успешло подключились как администратор`,{
                         reply_markup:{
                             keyboard:[
-                                ['📅 Записи'],
-                                ['❌ Вернуться назад']
+                                ['📅 Все записи'],
+                                ['⬅️ Вернуться назад']
                             ],
                             resize_keyboard:true
                         }
@@ -143,10 +141,12 @@ bot.on('message', async (msg) => {
                 }
                 isAdmin = true;
             }
-            if (!isAdmin)  await bot.sendMessage(chatId, `У вас нет прав!`);
+            if (!isAdmin)  
+                await bot.sendMessage(chatId, `У вас нет прав!`);
             break;
+
             // записи у админа
-            case'📅 Записи':
+            case'📅 Все записи':
             const now1 = moment();
             const today1 = now1.format('YYYY-MM-DD');
 
@@ -173,6 +173,37 @@ bot.on('message', async (msg) => {
             }
             break;
 
+        case '📅 Запись':
+            bot.sendMessage(chatId,`📅 Запись`,{
+                reply_markup:{
+                    keyboard:[
+                        ['❇️ Записаться на услугу'],
+                        ['📋 УСЛУГИ'], 
+                        ['📅 Мои записи'], 
+                        ['🏠Главное меню']
+                    ],
+                    resize_keyboard:true
+                }
+            })
+        break;
+
+        case '⏮️ Изменить запись':
+        case '❇️ Записаться на услугу':
+
+            await bot.sendMessage(chatId, `Супер😉
+Выбери услугу, которая тебя интересует: `, {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    keyboard: [
+                        ['💅 Маникюр', '💅 Педикюр'],
+                        ['⬅️ Вернуться назад']
+                    ],
+                    resize_keyboard: true
+                }
+            });
+
+            break;
+
         // Услуги
         case '📋 УСЛУГИ':
             await bot.sendMessage(chatId, `Маникюр:
@@ -191,29 +222,54 @@ bot.on('message', async (msg) => {
                 reply_markup: {
                     keyboard: [
                         ['❇️ Записаться на услугу'],
-                        ['❌ Вернуться назад']
+                        ['⬅️ Вернуться назад']
                     ],
                     resize_keyboard: true
                 }
             });
             break;
 
-        case '⏮️ Изменить запись':
-        case '❇️ Записаться на услугу':
+         //мои записи
+        case '📅 Мои записи':
+            const now = moment();
+            const today = now.format('YYYY-MM-DD');
 
-            await bot.sendMessage(chatId, `Супер
-Выбери услугу, которая тебя интересует
-Из предложенных: `, {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    keyboard: [
-                        ['💅 Маникюр', '💅 Педикюр'],
-                        ['❌ Вернуться назад']
-                    ],
-                    resize_keyboard: true
-                }
-            });
+            // Найти все записи клиента на сегодня и будущее
+            const userAppointments = await Appointment.find({
+                user_id: chatId,
+                appointment_date: { $gte: today },
+            }).sort({ appointment_date: 1, appointment_time: 1 });
 
+            if (userAppointments.length === 0) {
+                await bot.sendMessage(chatId, `На данный момент у вас нет записей. Хотите записаться?`, {
+                    reply_markup: {
+                        keyboard: [['❇️ Записаться на услугу'], ['🏠Главное меню']],
+                        resize_keyboard: true
+                    }
+                });
+                return;
+            }
+            // Выводим записи с кнопками для отмены
+            for (const appointment of userAppointments) {
+                await bot.sendMessage(chatId,
+                    `Ваши записи:
+                    📅 Дата: ${appointment.appointment_date}
+                    ⏰ Время: ${appointment.appointment_time}
+                    💅 Услуга: ${appointment.type}
+                    📞 Телефон: ${appointment.phone}
+                    `,
+                    {
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{
+                                    text: '❌ Отменить запись',
+                                    callback_data: `cancel_${appointment._id}`
+                                }]
+                            ]
+                        }
+                    }
+                );
+            }
             break;
 
         case '💅 Педикюр':
@@ -236,16 +292,29 @@ bot.on('message', async (msg) => {
             });
             break;
 
+        // О НАС
+        case '👩‍⚕️ О НАС':
+            await bot.sendMessage(chatId, `Выберите, что вам интересно узнать о нас`, {
+                reply_markup: {
+                    keyboard: [
+                        ['🚍 Как добраться'  ],
+                        ['🅿️ Где припарковаться?'],
+                        ['🏠Главное меню'] 
+                    ],
+                    resize_keyboard: true
+                }
+            });
+            break;
+
         // Как добраться
         case '🚍 Как добраться':
             const yandexMapLink = `https://yandex.by/maps/org/tanyanailsss/161368982356/?ll=27.482495%2C53.878875&z=17`;
 
-            await bot.sendMessage(chatId, `Мы находимся по адресу: Янки Брыля 24.\n\nВот наше местоположение на Яндекс.Картах:\n[Посмотреть на карте](${yandexMapLink})`, {
+            await bot.sendMessage(chatId, `Мы находимся по адресу: \nЯнки Брыля 24.\n\nВот наше местоположение на Яндекс.Картах:\n[Посмотреть на карте](${yandexMapLink})`, {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     keyboard: [
-                        ['🅿️ Где припарковаться?'],
-                        ['❌ Вернуться назад']
+                        ['⬅️ Вернуться назад']
                     ],
                     resize_keyboard: true
                 }
@@ -255,30 +324,22 @@ bot.on('message', async (msg) => {
         case '🅿️ Где припарковаться?':
             await bot.sendPhoto(msg.chat.id, fs.createReadStream('./aUs/parking.jpg'), {
                 caption: '<b>Ближайшие парковки находятся вдоль улицы Янки Брыля и возле торгового центра. Парковка бесплатная. </b>',
+                reply_markup: {
+                    keyboard: [
+                        ['⬅️ Вернуться назад']
+                    ],
+                    resize_keyboard: true
+                },
                 parse_mode: "HTML",
             });
             break;
 
-        // О НАС
-        case '👩‍⚕️ О НАС':
-            await bot.sendMessage(chatId, `Выберите, что вам интересно узнать о нас`, {
-                reply_markup: {
-                    keyboard: [
-                        ['🏚 Интерьер'],
-                        ['☎️ Контакты'],
-                        ['❌ Вернуться назад']
-                    ],
-                    resize_keyboard: true
-                }
-            });
-            break;
-
-        // Контакты
-        case '☎️ Контакты':
-            await bot.sendMessage(chatId, 'Связаться можно по телефону: +375 29 271-01-83.\nInstagram: [tanyanailsss_minsk](https://www.instagram.com/tanyanailsss_minsk)', {
-                parse_mode: 'Markdown'
-            });
-            break;
+        // // Контакты
+        // case '☎️ Контакты':
+        //     await bot.sendMessage(chatId, 'Связаться можно по телефону: +375 29 271-01-83.\nInstagram: [tanyanailsss_minsk](https://www.instagram.com/tanyanailsss_minsk)', {
+        //         parse_mode: 'Markdown'
+        //     });
+        //     break;
 
         // Как пользоваться ботом
         case '🆘 Как пользоваться ботом':
@@ -390,28 +451,17 @@ bot.on('message', async (msg) => {
                     keyboard: [
                         ['✍️ Написать отзыв'],
                         ['👀 Почитать отзывы'],
-                        ['❌ Вернуться назад']
+                        ['⬅️ Вернуться назад']
                     ],
                     resize_keyboard: true
                 }
             });
-            break;
+        break;
 
         case '✍️ Написать отзыв':
             await setReview(msg);
-            break;
-
-        case '❌ На главную':
-        case '❌ Вернуться назад':
-            await bot.sendMessage(chatId, 'Вы вернулись на главную страницу', {
-                parse_mode: 'HTML',
-                reply_markup: {
-                    keyboard: keyboards.mainOptions,
-                    resize_keyboard: true
-                }
-            });
-            break;
-
+        break;
+    
         case '👀 Почитать отзывы':
             const reviews = await Review.find();
             if (reviews.length > 5) {
@@ -424,8 +474,18 @@ bot.on('message', async (msg) => {
                 };
             } else {
                 await bot.sendMessage(chatId, 'На данный момент отзывов нету. Будьте первым, кто оставит отзыв!😘');
-            }
+            } 
+        break;
 
+        case '🏠Главное меню':
+        case '⬅️ Вернуться назад':
+            await bot.sendMessage(chatId, 'Вы вернулись на главную страницу', {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    keyboard: keyboards.mainOptions,
+                    resize_keyboard: true
+                }
+            });
             break;
 
         // Разные виды маникюра
@@ -474,10 +534,17 @@ bot.on('message', async (msg) => {
             break;
 
         case '✅ Подтвердить запись':
-            // console.log(userStates[chatId]);
             if (!userStates[chatId] || !userStates[chatId].id) {
                 await bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте заново.');
                 return;
+            }
+            const user = await User.findOne({user_id: chatId});
+            if (!user){
+                const newUser = new User({
+                    user_id: chatId,
+                    confidentiality: true
+                });
+                newUser.save();
             }
             const newAppointment = new Appointment({
                 user_id: userStates[chatId].id,
@@ -509,50 +576,6 @@ bot.on('message', async (msg) => {
                 }
             });
             delete userStates[chatId];
-            break;
-
-        //мои записи
-        case '📅 Мои записи':
-            const now = moment();
-            const today = now.format('YYYY-MM-DD');
-
-            // Найти все записи клиента на сегодня и будущее
-            const userAppointments = await Appointment.find({
-                user_id: chatId,
-                appointment_date: { $gte: today },
-            }).sort({ appointment_date: 1, appointment_time: 1 });
-
-            if (userAppointments.length === 0) {
-                await bot.sendMessage(chatId, `На данный момент у вас нет записей. Хотите записаться?`, {
-                    reply_markup: {
-                        keyboard: [['❇️ Записаться на услугу'], ['❌ На главную']],
-                        resize_keyboard: true
-                    }
-                });
-                return;
-            }
-
-            // Выводим записи с кнопками для отмены
-            for (const appointment of userAppointments) {
-                await bot.sendMessage(chatId,
-                    `Ваши записи:
-                    📅 Дата: ${appointment.appointment_date}
-                    ⏰ Время: ${appointment.appointment_time}
-                    💅 Услуга: ${appointment.type}
-                    📞 Телефон: ${appointment.phone}
-                    `,
-                    {
-                        reply_markup: {
-                            inline_keyboard: [
-                                [{
-                                    text: '❌ Отменить запись',
-                                    callback_data: `cancel_${appointment._id}`
-                                }]
-                            ]
-                        }
-                    }
-                );
-            }
             break;
 
 
@@ -597,6 +620,15 @@ async function recoding(msg) {
         }
     };
     userStates[chatId] = { ...userStates[chatId], type: typeText };
+    await bot.sendMessage(chatId,`Вы выбрали ${typeText}`,{
+        reply_markup:{
+            keyboard: [
+                ['⏮️ Изменить запись'],
+                ['🏠Главное меню']
+            ],
+            resize_keyboard:true
+        }
+    });
     await bot.sendMessage(chatId, 'Выберите дату для записи:', options);
 }
 
@@ -646,6 +678,7 @@ bot.on('callback_query', async (query) => {
         await bot.sendMessage(chatId, `Ваша запись на ${selectedDate} в ${selectedTime} успешно сохранена!`);
         await bot.sendMessage(chatId, `Подскажи, как тебя зовут?`);
     }
+
     if (data.startsWith('cancel_')) {
         const appointmentId = data.split('_')[1];
         const appointment = await Appointment.findById(appointmentId);
@@ -674,21 +707,38 @@ bot.on('contact', async (msg) => {
 
     try {
 
-
-        await bot.sendMessage(chatId, ` Ваша запись:
+    await bot.sendMessage(chatId, ` Ваша запись:
 📅 Дата: ${userStates[chatId].selectedDate}
 ⏰ Время: ${userStates[chatId].selectedTime}
 💅 Услуга: ${userStates[chatId].type}
 📞 Телефон: ${userStates[chatId].phoneNumber}. Все верно?`, {
-            reply_markup: {
-                keyboard: [['✅ Подтвердить запись'],
-                ['⏮️ Изменить запись'],
-                ['❌ На главную']
-                ]
-            },
-            resize_keyboard: true
-        });
+    reply_markup: {
+        keyboard: [['✅ Подтвердить запись'],
+        ['⏮️ Изменить запись'],
+        ['🏠Главное меню']
+        ]
+    },
+    resize_keyboard: true,
+    parse_mode:'HTML',
+    disable_web_page_preview:true
+});
 
+const user = await User.findOne({user_id: chatId});
+// console.log(user);
+if (!user){
+    await bot.sendMessage(chatId,`Подтверждая запись, вы соглашаетесь с нашей <a href='https://jamalbenderusss.github.io/evaBot/advertising-mailing.pdf'>политикой конфиденциальности</a>`, {
+        reply_markup: {
+            keyboard: [['✅ Подтвердить запись'],
+            ['⏮️ Изменить запись'],
+            ['🏠Главное меню']
+        ]
+            },
+            resize_keyboard: true,
+            parse_mode:'HTML',
+            disable_web_page_preview:true
+        });
+        
+    }
 
     } catch (error) {
         console.error('Ошибка при сохранении контакта:', error);
@@ -808,7 +858,7 @@ async function checkCompletedAppointments() {
             await bot.sendMessage(appointment.user_id, `Спасибо, что посетили нашу студию! 🥰 Нам будет очень приятно, если вы оставите отзыв о своей процедуре. Это займёт всего пару минут!`, {
                 reply_markup: {
                     keyboard: [
-                        ['✍️ Написать отзыв', '❌ На главную']
+                        ['✍️ Написать отзыв', '🏠Главное меню']
                     ],
                     resize_keyboard: true
                 }
